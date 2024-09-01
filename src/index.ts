@@ -19,6 +19,7 @@ const pubClient = createClient({ url: "redis://redis:6379" });
 const subClient = pubClient.duplicate();
 
 const rooms: Room[] = [];
+let bullets = [];
 
 Promise.all([pubClient.connect(), subClient.connect()])
   .then(() => {
@@ -42,9 +43,11 @@ const enterUser = (id: string, roomName: string) => {
 };
 
 const removeUser = (userId: string) => {
-  const room = rooms.find((room) => room.users.find((user) => user.id === userId));
+  const room = rooms.find((room) =>
+    room.users.find((user) => user.id === userId)
+  );
 
-  if(!room || !room.users) return;
+  if (!room || !room.users) return;
   room.users = room.users.filter((user) => user.id !== userId);
 
   rooms[rooms.indexOf(room!)] = room!;
@@ -63,6 +66,10 @@ const initGame = () => {
     });
   });
 };
+
+function generateBulletId(playerId : string) {
+  return `bullet_${playerId}_${Date.now()}`;
+}
 
 io.on("connection", (socket: Socket) => {
   console.log("A user connected:", socket.id);
@@ -107,7 +114,7 @@ io.on("connection", (socket: Socket) => {
   });
 
   // 게임 시작 및 초기화
-  socket.on("gameStart", async (roomName : string) => {
+  socket.on("gameStart", async (roomName: string) => {
     const room = rooms.find((room) => room.roomName === roomName);
 
     if (!room) {
@@ -127,21 +134,39 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
-  socket.on('gameInit', (roomId : string) => {
-    const room = rooms.find(room => room.roomName === roomId)
-    socket.emit("initPlayer", {id: socket.id, players: room?.users});
-  })
+  socket.on("gameInit", (roomId: string) => {
+    const room = rooms.find((room) => room.roomName === roomId);
+    socket.emit("initPlayer", { id: socket.id, players: room?.users });
+  });
 
   // 플레이어 이동
-  socket.on('move', (data) => {
-    const players = rooms.find(room => room.roomName === data.roomId)?.users;
+  socket.on("move", (data) => {
+    const players = rooms.find((room) => room.roomName === data.roomId)?.users;
     const player = players?.find((user) => user.id === socket.id);
 
     if (player) {
-        player.updatePosition(data.x, data.y, data.z);
-        socket.broadcast.emit('update', { id: socket.id, x : player.x, y : player.y, z : player.z });
+      player.updatePosition(data.x, data.y, data.z);
+      socket.broadcast.emit("update", {
+        id: socket.id,
+        x: player.x,
+        y: player.y,
+        z: player.z,
+      });
     }
-});
+  });
+
+  socket.on("bulletFired", (data) => {
+    const bulletId = generateBulletId(socket.id);
+    const bullet = {
+      id: bulletId,
+      playerId: data.playerId,
+      position: data.position,
+      direction: data.direction,
+    };
+    bullets.push(bullet);
+
+    socket.broadcast.emit("newBullet", bullet);
+  });
 
   // 연결 해제
   socket.on("disconnect", async () => {
