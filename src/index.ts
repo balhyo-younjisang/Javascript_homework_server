@@ -88,6 +88,20 @@ io.on("connection", (socket: Socket) => {
       players: room.users.length,
     });
   });
+  
+  socket.on('bulletHitPlayer', (data) => {
+    const { playerId, bulletId } = data;
+
+    const player = rooms.find((room) => room.users.find((user) => user.id === playerId))?.users.find(user => user.id === playerId);
+    if (player) {
+        player.health -= 10;  
+        socket.broadcast.emit('playerHit', { playerId, newHealth: player.health });
+
+        if (player.health <= 0) {
+            socket.broadcast.emit('playerDead', playerId);  
+        }
+    }
+});
 
   // Room 참가
   socket.on("joinRoom", (roomName: string) => {

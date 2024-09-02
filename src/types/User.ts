@@ -15,6 +15,8 @@ export class User {
 
   camp!: Camp;
 
+  health: number = 100;
+
   constructor(obj: CreateUserObj) {
     this.id = obj.id;
     this.room = obj.room;
@@ -24,5 +26,9 @@ export class User {
     this.x = x;
     this.y = y;
     this.z = z;
-}
+  }
+
+  updateHealth(health : number) {
+    this.health = health;
+  }
 }
